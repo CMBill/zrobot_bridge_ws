@@ -37,6 +37,7 @@ include_directories(
 # Declare a cpp library with a different name to avoid conflict
 add_library(${PROJECT_NAME}_lib
   src/motor_cfg.cpp
+  src/motor_cfg_mit.cpp
 )
 
 # Rename the output to avoid confusion

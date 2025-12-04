@@ -1,2 +1,7 @@
 .vscode
 log
+.idea
+build
+devel
+install
+cmake-build*

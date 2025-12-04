@@ -41,7 +41,7 @@ void RobStrideMotor::init_socket()
     }
 
     struct can_filter rfilter[1];
-    rfilter[0].can_id   = (motor_id << 8) | CAN_EFF_FLAG;   // Bit8~Bit15 放电机ID，高位扩展帧标志
+    rfilter[0].can_id   = (master_id << 8) | CAN_EFF_FLAG;   // Bit8~Bit15 放电机ID，高位扩展帧标志
     rfilter[0].can_mask = (0xFF << 8) | CAN_EFF_FLAG;          // 只匹配 Bit8~Bit15 + 扩展帧标志
 
     if (setsockopt(socket_fd, SOL_CAN_RAW, CAN_RAW_FILTER, &rfilter, sizeof(rfilter)) < 0) 
@@ -197,7 +197,7 @@ void RobStrideMotor::Set_RobStrite_Motor_parameter(uint16_t Index, float Value, 
 {
     struct can_frame frame{};
 
-    frame.can_id = Communication_Type_SetSingleParameter << 24 | master_id << 8 | motor_id;
+    frame.can_id = Communication_Type_SetSingleParameter << 24 | motor_id << 8 | master_id;
     frame.can_id |= CAN_EFF_FLAG; // 扩展帧
     frame.can_dlc = 0x08;
 
@@ -260,7 +260,7 @@ void RobStrideMotor::Set_RobStrite_Motor_parameter(uint16_t Index, float Value, 
 std::tuple<float, float, float, float> RobStrideMotor::enable_motor()
 {
     struct can_frame frame{};
-    frame.can_id = (Communication_Type_MotorEnable << 24) | (master_id << 8) | motor_id;
+    frame.can_id = (Communication_Type_MotorEnable << 24) | (motor_id << 8) | master_id;
     frame.can_id |= CAN_EFF_FLAG; // 扩展帧
     frame.can_dlc = 8;
     memset(frame.data, 0, 8);
@@ -366,7 +366,7 @@ std::tuple<float, float, float, float> RobStrideMotor::send_motion_command(float
         usleep(1000);
     }
     struct can_frame frame{};
-    frame.can_id = (Communication_Type_MotionControl << 24) | (float_to_uint(torque, -ACTUATOR_OPERATION_MAPPING.at(static_cast<ActuatorType>(actuator_type)).torque, ACTUATOR_OPERATION_MAPPING.at(static_cast<ActuatorType>(actuator_type)).torque, 16) << 8) | motor_id;
+    frame.can_id = (Communication_Type_MotionControl << 24) | (float_to_uint(torque, -ACTUATOR_OPERATION_MAPPING.at(static_cast<ActuatorType>(actuator_type)).torque, ACTUATOR_OPERATION_MAPPING.at(static_cast<ActuatorType>(actuator_type)).torque, 16) << 8) | master_id;
     frame.can_id |= CAN_EFF_FLAG; // 扩展帧
     // frame.can_id = 0x1200fd01;
     frame.can_dlc = 8;
@@ -535,7 +535,7 @@ float RobStrideMotor::read_initial_position()
 void RobStrideMotor::Get_RobStrite_Motor_parameter(uint16_t Index)
 {
     struct can_frame frame{};
-    frame.can_id = (Communication_Type_GetSingleParameter << 24) | (master_id << 8) | motor_id;
+    frame.can_id = (Communication_Type_GetSingleParameter << 24) | (motor_id << 8) | master_id;
     frame.can_id |= CAN_EFF_FLAG; // 扩展帧
     frame.can_dlc = 8;
 
@@ -722,7 +722,7 @@ void RobStrideMotor::RobStrite_Motor_Set_Zero_control()
 void RobStrideMotor::Disenable_Motor(uint8_t clear_error)
 {
     struct can_frame frame{};
-    frame.can_id = (Communication_Type_MotorStop << 24) | (master_id << 8) | motor_id;
+    frame.can_id = (Communication_Type_MotorStop << 24) | (motor_id << 8) | master_id;
     frame.can_id |= CAN_EFF_FLAG; // 扩展帧
     frame.can_dlc = 8;
     memset(frame.data, 0, 8);
@@ -779,7 +779,7 @@ void RobStrideMotor::Set_CAN_ID(uint8_t Set_CAN_ID)
 	Disenable_Motor(0);
 
     struct can_frame frame{};
-    frame.can_id = (Communication_Type_Can_ID<<24) | (Set_CAN_ID<<16) | (master_id << 8) | motor_id;
+    frame.can_id = (Communication_Type_Can_ID<<24) | (Set_CAN_ID<<16) | (motor_id << 8) | master_id;
     frame.can_id |= CAN_EFF_FLAG; // 扩展帧
     frame.can_dlc = 8;
     memset(frame.data, 0, 8);
@@ -926,7 +926,7 @@ void RobStrideMotor::Set_ZeroPos()
     }
 
     struct can_frame frame{};
-    frame.can_id = (Communication_Type_SetPosZero << 24) | (master_id << 8) | motor_id;
+    frame.can_id = (Communication_Type_SetPosZero << 24) | (motor_id << 8) | master_id;
     frame.can_id |= CAN_EFF_FLAG; // 扩展帧
     frame.can_dlc = 8;
     memset(frame.data, 0, 8);

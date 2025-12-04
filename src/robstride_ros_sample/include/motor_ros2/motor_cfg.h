@@ -170,7 +170,7 @@ class RobStrideMotor
 {
 public:
     RobStrideMotor(const std::string can_interface, uint8_t master_id, uint8_t motor_id, int actuator_type)
-        : iface(can_interface), master_id(master_id), motor_id(motor_id), actuator_type(actuator_type)
+        : iface(can_interface), motor_id(master_id), master_id(motor_id), actuator_type(actuator_type)
     {
         init_socket();
     }
@@ -304,8 +304,8 @@ public:
 
 public:
     std::string iface;
-    uint8_t master_id;
     uint8_t motor_id;
+    uint8_t master_id;
     int socket_fd = -1;
 	Motor_Set Motor_Set_All;	// 设定值
     data_read_write_one params;
