@@ -1,7 +1,9 @@
 //
 // Created by bill on 2025 12 03.
 //
-#pragma once
+#ifndef RS_MOTOR_ROS2_MOTOR_CFG_MIT_H
+#define RS_MOTOR_ROS2_MOTOR_CFG_MIT_H
+
 #include <iostream>
 #include <cstring>
 #include <linux/can.h>
@@ -9,9 +11,6 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
-
-#ifndef RS_MOTOR_ROS2_MOTOR_CFG_MIT_H
-#define RS_MOTOR_ROS2_MOTOR_CFG_MIT_H
 
 enum class MotorMode : uint8_t
 {

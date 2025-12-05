@@ -1,4 +1,4 @@
-#include "motor_ros2/motor_cfg_mit.h"
+#include "motor_ros2/RobStrideMotor.h"
 
 
 /**

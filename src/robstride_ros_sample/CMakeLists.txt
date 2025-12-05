@@ -61,6 +61,8 @@ ament_target_dependencies(${PROJECT_NAME}_lib
 # Motor control test executable
 add_executable(rs_motor_ros2
   src/main.cpp
+        src/RobStrideMotorReceive.cpp
+        include/motor_ros2/RobStrideMotorReceive.h
 )
 # add_executable(enable_motor
 #   src/enable_motor.cpp
