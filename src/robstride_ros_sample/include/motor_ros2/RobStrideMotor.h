@@ -6,11 +6,14 @@
 
 #include <iostream>
 #include <cstring>
+#include <memory>
 #include <linux/can.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
+
+#include "../include/motor_ros2/RobStrideMotorReceiver.h"
 
 enum class MotorMode : uint8_t
 {
@@ -29,12 +32,19 @@ enum class MotorCommunicationProtocol : uint8_t
 class RobStrideMotor
 {
 public:
-    RobStrideMotor(uint8_t motor_id, std::string can_interface, uint8_t master_id)
+    RobStrideMotor(uint8_t motor_id, std::string can_interface, uint8_t master_id,
+                   std::shared_ptr<RobStrideMotorReceiver> feedback_mgr)
         : motor_id(motor_id),
           iface(std::move(can_interface)),
           master_id(master_id)
     {
         init_socket();
+
+        // 注册反馈回调
+        feedback_manager_->register_motor(motor_id,
+            [this](uint8_t id, const RobStrideMotorReceiver::FeedbackData& data) {
+                this->handle_feedback(data);
+            });
     }
 
     void Enable_Motor() const;
@@ -50,6 +60,23 @@ public:
     void Set_Motor_Velocity(float Velocity, float I_Limit) const;
 
 private:
+    void handle_feedback(const RobStrideMotorReceiver::FeedbackData& data) {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        position_ = data.position;
+        velocity_ = data.velocity;
+        torque_ = data.torque;
+        temperature_ = data.temperature;
+        last_update_time_ = data.timestamp;
+    }
+
+    std::shared_ptr<RobStrideMotorReceiver> feedback_manager_;
+    std::mutex state_mutex_;
+    
+    float position_ = 0.0f;
+    float velocity_ = 0.0f;
+    float torque_ = 0.0f;
+    float temperature_ = 0.0f;
+    std::chrono::steady_clock::time_point last_update_time_;
 
     uint8_t motor_id;
 

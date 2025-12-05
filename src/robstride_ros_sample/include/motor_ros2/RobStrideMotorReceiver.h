@@ -6,27 +6,56 @@
 #define RS_MOTOR_ROS2_ROBSTRIDEMOTORRECEIVE_H
 
 #include <iostream>
-#include <cstring>
 #include <linux/can.h>
-#include <net/if.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
 #include <vector>
 #include <optional>
+#include <functional>
+#include <chrono>
+
+#include <map>
+#include <atomic>
+#include <mutex>
+#include <thread>
 
 using ReceiveResult = std::optional<std::tuple<uint8_t, uint16_t, uint8_t, std::vector<uint8_t>>>;
 
 class RobStrideMotorReceiver
 {
 public:
-    void recieve_can_data();
+    struct FeedbackData {
+            float position;
+            float velocity;
+            float torque;
+            float temperature;
+            uint8_t error_code;
+            std::chrono::steady_clock::time_point timestamp;
+        };
+    using FeedbackCallback = std::function<void(uint8_t motor_id, const FeedbackData&)>;
+
+    RobStrideMotorReceiver(const std::string& can_interface);
+    ~RobStrideMotorReceiver();
+
+    // 注册电机回调函数
+    void register_motor(uint8_t motor_id, FeedbackCallback callback);
+    void unregister_motor(uint8_t motor_id);
+
+    // 启动/停止接收线程
+    void start();
+    void stop();
+
 
 private:
 
-    std::string iface;
-    int socket_fd_rx = -1;
+    void receive_thread_func();
+    void parse_and_dispatch(const can_frame& frame);
 
-    void init_receive_socket();
+    int socket_fd_;
+    std::string iface_;
+    std::atomic<bool> running_;
+    std::thread receive_thread_;
+
+    std::mutex callbacks_mutex_;
+    std::map<uint8_t, FeedbackCallback> motor_callbacks_;
 
 };
 

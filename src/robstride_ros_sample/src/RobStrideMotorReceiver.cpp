@@ -4,43 +4,33 @@
 
 #include "../include/motor_ros2/RobStrideMotorReceiver.h"
 
-#include <unistd.h>
-
-void RobStrideMotorReceiver::init_receive_socket()
-{
-    socket_fd_rx = socket(PF_CAN, SOCK_RAW, CAN_RAW);
-    if (socket_fd_rx < 0)
-    {
-        perror("receive socket");
-        exit(1);
-    }
-
-    struct ifreq ifr{};
-    std::strncpy(ifr.ifr_name, iface.c_str(), IFNAMSIZ);
-    if (ioctl(socket_fd_rx, SIOCGIFINDEX, &ifr) < 0)
-    {
-        perror("ioctl");
-        exit(1);
-    }
-
-    struct sockaddr_can addr{};
-    addr.can_family = AF_CAN;
-    addr.can_ifindex = ifr.ifr_ifindex;
-
-    if (bind(socket_fd_rx, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0)
-    {
-        perror("bind");
-        exit(1);
+void RobStrideMotorReceiver::receive_thread_func() {
+    can_frame frame;
+    while (running_) {
+        ssize_t nbytes = read(socket_fd_, &frame, sizeof(frame));
+        if (nbytes > 0 && (frame.can_id & CAN_EFF_FLAG)) {
+            parse_and_dispatch(frame);
+        }
     }
 }
 
-void RobStrideMotorReceiver::recieve_can_data()
-{
-    struct can_frame frame;
-    while (true)
-    {
-        ssize_t nbytes = read(socket_fd_rx, reinterpret_cast<char*>(&frame), sizeof(frame));
+void RobStrideMotorReceiver::parse_and_dispatch(const can_frame& frame) {
+    uint32_t can_id = frame.can_id & CAN_EFF_MASK;
+    uint8_t communication_type = (can_id >> 24) & 0xFF;
 
+    // 从data中提取电机ID(根据您的协议)
+    uint8_t motor_id = frame.data[0]; // 假设在data[0]
+
+    if (communication_type == 0x02) { // 电机反馈帧
+        FeedbackData data;
+        // 解析frame.data填充data结构
+        // ...existing parsing code...
+
+        std::lock_guard<std::mutex> lock(callbacks_mutex_);
+        auto it = motor_callbacks_.find(motor_id);
+        if (it != motor_callbacks_.end()) {
+            it->second(motor_id, data);
+        }
     }
 }
 
