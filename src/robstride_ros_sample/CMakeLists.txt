@@ -37,7 +37,7 @@ include_directories(
 # Declare a cpp library with a different name to avoid conflict
 add_library(${PROJECT_NAME}_lib
   src/motor_cfg.cpp
-  src/motor_cfg_mit.cpp
+  src/RobStrideMotor.cpp
 )
 
 # Rename the output to avoid confusion
@@ -61,8 +61,8 @@ ament_target_dependencies(${PROJECT_NAME}_lib
 # Motor control test executable
 add_executable(rs_motor_ros2
   src/main.cpp
-        src/RobStrideMotorReceive.cpp
-        include/motor_ros2/RobStrideMotorReceive.h
+        src/RobStrideMotorReceiver.cpp
+        include/motor_ros2/RobStrideMotorReceiver.h
 )
 # add_executable(enable_motor
 #   src/enable_motor.cpp
