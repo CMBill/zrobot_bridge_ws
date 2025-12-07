@@ -13,7 +13,10 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "../include/motor_ros2/RobStrideMotorReceiver.h"
+// 前向声明
+class RobStrideMotorReceiver;
+struct MotorFeedback;
+
 
 enum class MotorMode : uint8_t
 {
@@ -33,18 +36,13 @@ class RobStrideMotor
 {
 public:
     RobStrideMotor(uint8_t motor_id, std::string can_interface, uint8_t master_id,
-                   std::shared_ptr<RobStrideMotorReceiver> feedback_mgr)
+                   std::shared_ptr<RobStrideMotorReceiver> receiver = nullptr)
         : motor_id(motor_id),
           iface(std::move(can_interface)),
-          master_id(master_id)
+          master_id(master_id),
+          receiver_(receiver)
     {
         init_socket();
-
-        // 注册反馈回调
-        feedback_manager_->register_motor(motor_id,
-            [this](uint8_t id, const RobStrideMotorReceiver::FeedbackData& data) {
-                this->handle_feedback(data);
-            });
     }
 
     void Enable_Motor() const;
@@ -59,24 +57,20 @@ public:
     void Set_Motor_Angle(float Angle, float Velocity) const;
     void Set_Motor_Velocity(float Velocity, float I_Limit) const;
 
-private:
-    void handle_feedback(const RobStrideMotorReceiver::FeedbackData& data) {
-        std::lock_guard<std::mutex> lock(state_mutex_);
-        position_ = data.position;
-        velocity_ = data.velocity;
-        torque_ = data.torque;
-        temperature_ = data.temperature;
-        last_update_time_ = data.timestamp;
-    }
+    // 设置接收器
+    void SetReceiver(std::shared_ptr<RobStrideMotorReceiver> receiver);
+    
+    // 获取最新反馈数据
+    bool GetLatestFeedback(MotorFeedback& feedback, int timeout_ms = 50) const;
 
-    std::shared_ptr<RobStrideMotorReceiver> feedback_manager_;
-    std::mutex state_mutex_;
+private:
     
     float position_ = 0.0f;
     float velocity_ = 0.0f;
     float torque_ = 0.0f;
     float temperature_ = 0.0f;
-    std::chrono::steady_clock::time_point last_update_time_;
+
+    std::shared_ptr<RobStrideMotorReceiver> receiver_;
 
     uint8_t motor_id;
 
@@ -86,7 +80,9 @@ private:
 
     void init_socket();
     static int float_to_uint(float x, float x_min, float x_max, int bits);
-
+    
+    // 发送消息后自动获取反馈
+    bool send_and_get_feedback(const struct can_frame& frame) const;
 
 };
 

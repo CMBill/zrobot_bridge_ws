@@ -1,4 +1,5 @@
 #include "motor_ros2/RobStrideMotor.h"
+#include "motor_ros2/RobStrideMotorReceiver.h"
 
 
 /**
@@ -65,8 +66,7 @@ void RobStrideMotor::Enable_Motor() const
     std::memset(&frame, 0xFF, 7);
     frame.data[7] = 0xFC;
 
-    const ssize_t n = write(socket_fd, &frame, sizeof(frame));
-    if (n != static_cast<ssize_t>(sizeof(frame)))
+    if (!send_and_get_feedback(frame))
     {
         perror("enable_motor failed");
     }
@@ -100,8 +100,7 @@ void RobStrideMotor::Disable_Motor() const
     std::memset(&frame, 0xFF, 7);
     frame.data[7] = 0xFD;
 
-    const ssize_t n = write(socket_fd, &frame, sizeof(frame));
-    if (n != static_cast<ssize_t>(sizeof(frame)))
+    if (!send_and_get_feedback(frame))
     {
         perror("disable_motor failed");
     }
@@ -156,8 +155,7 @@ void RobStrideMotor::Set_MIT_Dynamic_Param(const float Angle, const float Veloci
     frame.data[6] = (Kd_mapped & 0x0F << 4) | (torque_mapped >> 4 & 0xFF);
     frame.data[7] = torque_mapped & 0xFF;
 
-    const ssize_t n = write(socket_fd, &frame, sizeof(frame));
-    if (n != static_cast<ssize_t>(sizeof(frame)))
+    if (!send_and_get_feedback(frame))
     {
         perror("Set MIT ctrl params failed");
     } else
@@ -191,8 +189,7 @@ void RobStrideMotor::Set_Zero_Point() const
     std::memset(&frame, 0xFF, 7);
     frame.data[7] = 0xFE;
 
-    const ssize_t n = write(socket_fd, &frame, sizeof(frame));
-    if (n != static_cast<ssize_t>(sizeof(frame)))
+    if (!send_and_get_feedback(frame))
     {
         perror("set zero failed");
     }
@@ -241,8 +238,7 @@ void RobStrideMotor::Get_Error_Status(const bool clear_flag) const
         frame.data[6] = 0xFF; // 消除异常
     }
 
-    const ssize_t n = write(socket_fd, &frame, sizeof(frame));
-    if (n != static_cast<ssize_t>(sizeof(frame)))
+    if (!send_and_get_feedback(frame))
     {
         perror("Get_Error_Status failed");
     }
@@ -282,8 +278,7 @@ void RobStrideMotor::Set_Motor_Mode(MotorMode mode) const
     frame.data[6] = static_cast<ssize_t>(mode);
     frame.data[7] = 0xFC;
 
-    const ssize_t n = write(socket_fd, &frame, sizeof(frame));
-    if (n != static_cast<ssize_t>(sizeof(frame)))
+    if (!send_and_get_feedback(frame))
     {
         perror("Set_Motor_Mode failed");
     }
@@ -326,8 +321,7 @@ void RobStrideMotor::Set_Motor_ID(const uint8_t motor_id_new)
     frame.data[6] = motor_id_new;
     frame.data[7] = 0xFA;
 
-    const ssize_t n = write(socket_fd, &frame, sizeof(frame));
-    if (n != static_cast<ssize_t>(sizeof(frame)))
+    if (!send_and_get_feedback(frame))
     {
         perror("Set_Motor_ID failed");
     }
@@ -368,8 +362,7 @@ void RobStrideMotor::Set_Motor_Communication_Protocol(MotorCommunicationProtocol
     frame.data[6] = static_cast<uint8_t>(communication_protocol);
     frame.data[7] = 0xFD;
 
-    const ssize_t n = write(socket_fd, &frame, sizeof(frame));
-    if (n != static_cast<ssize_t>(sizeof(frame)))
+    if (!send_and_get_feedback(frame))
     {
         perror("Set_Motor_Communication_Protocol failed");
     }
@@ -412,8 +405,7 @@ void RobStrideMotor::Set_Master_ID(const uint8_t master_id_new)
     frame.data[6] = master_id_new;
     frame.data[7] = 0x01;
 
-    const ssize_t n = write(socket_fd, &frame, sizeof(frame));
-    if (n != static_cast<ssize_t>(sizeof(frame)))
+    if (!send_and_get_feedback(frame))
     {
         perror("Set_Mater_ID failed");
     }
@@ -452,8 +444,7 @@ void RobStrideMotor::Set_Motor_Angle(const float Angle, const float Velocity) co
     std::memcpy(&frame.data[0], &Angle, 4);
     std::memcpy(&frame.data[4], &Velocity, 4);
 
-    const ssize_t n = write(socket_fd, &frame, sizeof(frame));
-    if (n != static_cast<ssize_t>(sizeof(frame)))
+    if (!send_and_get_feedback(frame))
     {
         perror("Set_Motor_Angle failed");
     }
@@ -492,8 +483,7 @@ void RobStrideMotor::Set_Motor_Velocity(const float Velocity, const float I_Limi
     std::memcpy(&frame.data[0], &Velocity, 4);
     std::memcpy(&frame.data[4], &I_Limit, 4);
 
-    const ssize_t n = write(socket_fd, &frame, sizeof(frame));
-    if (n != static_cast<ssize_t>(sizeof(frame)))
+    if (!send_and_get_feedback(frame))
     {
         perror("Set_Motor_Velocity failed");
     }
@@ -529,4 +519,72 @@ int RobStrideMotor::float_to_uint(float x, const float x_min, const float x_max,
     if (x > x_max) { x = x_max;}
     else if (x < x_min) { x = x_min;}
     return static_cast<int>(((x - x_min) * static_cast<float>((1 << bits) - 1)) / span);
+}
+
+/**
+ * @brief 设置接收器
+ * 
+ * @param receiver 共享的接收器指针
+ */
+void RobStrideMotor::SetReceiver(std::shared_ptr<RobStrideMotorReceiver> receiver)
+{
+    receiver_ = receiver;
+}
+
+/**
+ * @brief 获取最新反馈数据
+ * 
+ * @param feedback 输出参数,存储反馈数据
+ * @param timeout_ms 超时时间(毫秒)
+ * @return true 获取成功, false 获取失败
+ */
+bool RobStrideMotor::GetLatestFeedback(MotorFeedback& feedback, int timeout_ms) const
+{
+    if (!receiver_)
+    {
+        return false;
+    }
+    return receiver_->GetMotorFeedback(motor_id, feedback, timeout_ms);
+}
+
+/**
+ * @brief 发送 CAN 帧并自动获取反馈
+ * 
+ * @param frame 要发送的 CAN 帧
+ * @return true 发送成功并获取到反馈, false 发送失败或未获取到反馈
+ */
+bool RobStrideMotor::send_and_get_feedback(const struct can_frame& frame) const
+{
+    // 清除旧的反馈数据
+    if (receiver_)
+    {
+        receiver_->ClearMotorFeedback(motor_id);
+    }
+
+    // 发送消息
+    const ssize_t n = write(socket_fd, &frame, sizeof(frame));
+    if (n != static_cast<ssize_t>(sizeof(frame)))
+    {
+        return false;
+    }
+
+    // 如果没有接收器,直接返回成功
+    if (!receiver_)
+    {
+        return true;
+    }
+
+    // 获取反馈
+    MotorFeedback feedback;
+    bool got_feedback = receiver_->GetMotorFeedback(motor_id, feedback, 50);
+    
+    if (got_feedback)
+    {
+        std::cout << "[✓] Motor " << static_cast<int>(motor_id) 
+                  << " - Pos: " << feedback.position 
+                  << ", Vel: " << feedback.velocity 
+                  << ", Torque: " << feedback.torque << std::endl;
+    }
+    
+    return got_feedback;
 }
